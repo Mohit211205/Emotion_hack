@@ -3,9 +3,10 @@
 <div align="center">
 
 ![Python](https://img.shields.io/badge/Python-3.13-blue?style=for-the-badge&logo=python)
-![TensorFlow](https://img.shields.io/badge/TensorFlow-2.x-orange?style=for-the-badge&logo=tensorflow)
-![OpenCV](https://img.shields.io/badge/OpenCV-4.x-green?style=for-the-badge&logo=opencv)
+![TensorFlow](https://img.shields.io/badge/TensorFlow-2.21-orange?style=for-the-badge&logo=tensorflow)
+![OpenCV](https://img.shields.io/badge/OpenCV-4.13-green?style=for-the-badge&logo=opencv)
 ![Flask](https://img.shields.io/badge/Flask-3.x-black?style=for-the-badge&logo=flask)
+![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-teal?style=for-the-badge&logo=fastapi)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
 ### 🏆 HCL IIT Hackathon 2026 — Problem Statement 9
@@ -109,9 +110,14 @@ This project implements a **real-time emotion-aware human-system interaction** p
 | Component | Technology | Purpose |
 |-----------|-----------|---------|
 | Face Detection | DeepFace + OpenCV | Real-time facial emotion detection |
-| Custom Model | TensorFlow/Keras CNN | FER-2013 trained emotion classifier |
-| Voice Detection | Librosa + SoundDevice | Audio emotion analysis |
-| Web Bot UI | Flask + HTML5 Canvas | Animated soft bot interface |
+| Custom CNN Model | TensorFlow/Keras | FER-2013 trained emotion classifier (emotion_model.h5) |
+| Transfer Learning | VGG16 + Keras | Alternative FER-2013 model (emotion_model_v2.h5) |
+| Voice Detection (ML) | Librosa + scikit-learn RandomForest | Audio emotion with trained model (voice_model.pkl) |
+| Voice Detection (Rule) | Librosa + SoundDevice | Rule-based audio fallback (voice_emotion2.py) |
+| Voice Model Training | CREMA-D + RAVDESS + scikit-learn | Voice emotion model training pipeline |
+| Web Bot UI (Flask) | Flask + HTML5 Canvas | Animated soft bot web interface (port 5000) |
+| Web Bot UI (FastAPI) | FastAPI + WebSocket + HTML5 Canvas | Real-time multimodal bot via WebSocket |
+| Audio Transformer | wav2vec2 (HuggingFace Transformers) | Deep learning audio emotion in server.py |
 | Live Dashboard | Matplotlib | Real-time emotion visualization |
 | Data Logging | Python CSV | Emotion timeline logging |
 | Performance | Python Threading | Smooth real-time processing |
@@ -130,7 +136,12 @@ This project implements a **real-time emotion-aware human-system interaction** p
 ### RAVDESS (Audio Emotions)
 - **Source:** [Zenodo RAVDESS](https://zenodo.org/record/1188976)
 - **Type:** Speech and song emotional audio recordings
-- **Used for:** Voice emotion feature calibration
+- **Used for:** Voice emotion model training (`train_voice_model.py`)
+
+### CREMA-D (Audio Emotions)
+- **Source:** [GitHub CREMA-D](https://github.com/CheyneyComputerScience/CREMA-D)
+- **Type:** Crowd-sourced emotional multimodal actors dataset (WAV files)
+- **Used for:** Voice emotion model training alongside RAVDESS
 
 ### Distribution
 | Emotion | Train Images | Test Images |
@@ -148,10 +159,10 @@ This project implements a **real-time emotion-aware human-system interaction** p
 ## ⚙️ Installation
 
 ### Prerequisites
-- Python 3.10+
+- Python 3.13+
 - MacOS / Linux / Windows
 - Webcam + Microphone
-- 4GB RAM minimum
+- 4GB RAM minimum (8GB+ recommended for VGG16 / wav2vec2)
 
 ### Step 1 — Clone repository
 ```bash
@@ -182,32 +193,74 @@ pip install pyaudio
 
 ## ▶️ How to Run
 
-### Terminal 1 — Main Emotion Detector
+### Option A — OpenCV Desktop App (Standalone)
+
+#### Terminal 1 — Main Emotion Detector
 ```bash
 source .venv/bin/activate
 python3 app.py
 ```
-> Webcam opens with real-time emotion detection
+> Webcam opens with real-time face + voice emotion detection and animated bot panel side-by-side
 
-### Terminal 2 — Web Soft Bot
-```bash
-source .venv/bin/activate
-python3 bot_server.py
-```
-> Open browser at `http://localhost:8080`
-
-### Terminal 3 — Live Dashboard (Optional)
+#### Terminal 2 — Live Dashboard (Optional)
 ```bash
 source .venv/bin/activate
 python3 dashboard.py
 ```
-> Live matplotlib dashboard with emotion graphs
+> Live matplotlib dashboard with emotion timeline, pie chart, and frequency graphs
 
-### Train Custom Model (Optional)
+---
+
+### Option B — Flask Web Bot (Browser, port 5000)
+
+```bash
+source .venv/bin/activate
+python3 bot_server.py
+```
+> Open browser at `http://localhost:5000`  
+> Webcam frames are sent to Flask, DeepFace analyzes them, animated web bot responds
+
+---
+
+### Option C — FastAPI WebSocket Server (Real-time, browser)
+
+```bash
+source .venv/bin/activate
+pip install fastapi uvicorn
+uvicorn server:app --reload --port 8000
+```
+> Open browser at `http://localhost:8000`  
+> Uses WebSocket for real-time face + audio emotion fusion with wav2vec2 transformer model
+
+---
+
+### Train Models (Optional)
+
+#### Train face CNN (FER-2013)
 ```bash
 python3 train_model.py
 ```
-> Trains CNN on FER-2013 dataset (~30 minutes)
+> Trains custom CNN on FER-2013 dataset; saves `emotion_model.h5` (~1–2 hrs on CPU)
+
+#### Train face model v2 (VGG16 transfer learning)
+```bash
+python3 train_v2.py
+```
+> Fine-tunes VGG16 on FER-2013; saves `emotion_model_v2.h5`
+
+#### Train voice emotion model (CREMA-D / RAVDESS)
+```bash
+python3 train_voice_model.py
+```
+> Trains Random Forest on audio features from `voice_dataset/`; saves `voice_model.pkl`
+
+---
+
+### Test Voice Detection (Optional)
+```bash
+python3 voice_test.py
+```
+> Starts microphone and prints live voice emotion every 3 seconds
 
 ---
 
@@ -227,25 +280,44 @@ python3 train_model.py
 
 ## 📁 Project Structure
 
+```
 Emotion_hack/
 │
-├── app.py                  # Main application — webcam + emotion detection
-├── bot_server.py           # Flask web server for animated soft bot
-├── voice_emotion.py        # Audio/voice emotion detection module
-├── dashboard.py            # Live matplotlib emotion dashboard
-├── train_model.py          # CNN model training on FER-2013
+├── app.py                   # Main app — OpenCV webcam + face/voice emotion + animated bot panel
+├── bot_server.py            # Flask web server (port 5000) — browser-based animated soft bot
+├── server.py                # FastAPI WebSocket server — real-time face + audio multimodal fusion
+├── index.html               # Web UI for server.py (live camera + robot response via WebSocket)
 │
-├── emotion_model.h5        # Trained model (generated after training)
-├── emotion_log.csv         # Session emotion log (auto-generated)
-├── emotion_timeline.png    # Timeline graph (auto-generated)
-├── training_results.png    # Training accuracy plot (auto-generated)
+├── voice_emotion.py         # Voice emotion module — ML model (voice_model.pkl) + rule-based fallback
+├── voice_emotion2.py        # Simpler rule-based voice emotion (no ML model required)
+├── voice_test.py            # Standalone test script for voice emotion detection
 │
-├── dataset/                # FER-2013 dataset (not in repo)
+├── dashboard.py             # Live matplotlib dashboard — timeline, pie chart, frequency bars
+│
+├── train_model.py           # CNN model training on FER-2013 → emotion_model.h5
+├── train_v2.py              # VGG16 transfer learning on FER-2013 → emotion_model_v2.h5
+├── train_voice_model.py     # Random Forest voice model on CREMA-D/RAVDESS → voice_model.pkl
+│
+├── _bot_simulator.py        # Bot simulator placeholder
+│
+├── emotion_model.h5         # Trained face CNN (generated by train_model.py)
+├── emotion_model_v2.h5      # Trained VGG16 model (generated by train_v2.py)
+├── voice_model.pkl          # Trained voice RandomForest (generated by train_voice_model.py)
+├── emotion_log.csv          # Session emotion log (auto-generated at runtime)
+├── emotion_timeline.png     # Timeline graph (auto-generated after app.py session)
+├── training_results.png     # CNN training accuracy plot (generated by train_model.py)
+├── training_v2_results.png  # VGG16 training plot (generated by train_v2.py)
+│
+├── dataset/                 # FER-2013 dataset (not in repo)
 │   ├── train/
 │   └── test/
 │
-├── requirements.txt        # Python dependencies
-└── README.md               # This file
+├── voice_dataset/           # CREMA-D / RAVDESS audio dataset (not in repo)
+│   └── AudioWAV/
+│
+├── requirements.txt         # Python dependencies
+└── README.md                # This file
+```
 
 
 ---
