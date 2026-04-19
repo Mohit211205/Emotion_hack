@@ -65,7 +65,6 @@ for root, dirs, files in os.walk(DATASET_PATH):
         if f.endswith('.wav'):
             all_files.append(os.path.join(root, f))
 
-# Also check AudioWAV subfolder
 audioWAV = os.path.join(DATASET_PATH, "AudioWAV")
 if os.path.exists(audioWAV):
     for f in os.listdir(audioWAV):
