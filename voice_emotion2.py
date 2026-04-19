@@ -29,7 +29,7 @@ def analyze_voice(audio_data):
             emotion = "neutral"
         with voice_lock:
             current_voice_emotion = emotion
-        print(f"🎤 Voice: {emotion} | Energy:{energy:.3f} Pitch:{pitch:.0f}")
+        print(f"Voice: {emotion} | Energy:{energy:.3f} Pitch:{pitch:.0f}")
     except Exception as e:
         print(f"Voice analysis error: {e}")
 
@@ -51,7 +51,7 @@ def start_voice_detection():
     t = threading.Thread(target=record_and_analyze)
     t.daemon = True
     t.start()
-    print("🎤 Voice detection started!")
+    print("Voice detection started!")
 
 def get_voice_emotion():
     with voice_lock:
