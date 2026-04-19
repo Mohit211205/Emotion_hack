@@ -11,7 +11,7 @@ from transformers import pipeline
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-print("Loading audio model...")
+print("Loading audio model")
 audio_classifier = pipeline(
     "audio-classification",
     model="ehcalabres/wav2vec2-lg-xlsr-en-speech-emotion-recognition",
