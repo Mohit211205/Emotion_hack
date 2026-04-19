@@ -13,6 +13,7 @@ MODEL_PATH  = "voice_model.pkl"
 current_voice_emotion = "neutral"
 voice_lock = threading.Lock()
 
+# ─── Load trained model ───────────────────────────
 model_data     = None
 voice_model    = None
 label_encoder  = None
@@ -29,6 +30,7 @@ if os.path.exists(MODEL_PATH):
 else:
     print("voice_model.pkl not found — using rule-based fallback")
 
+# ─── Feature extraction ───────────────────────────
 def extract_features(audio):
     try:
         if len(audio) < int(SAMPLE_RATE * DURATION):
@@ -52,6 +54,7 @@ def extract_features(audio):
     except:
         return None
 
+# ─── Rule-based fallback ──────────────────────────
 def rule_based(audio):
     try:
         energy = np.mean(librosa.feature.rms(y=audio))
@@ -69,6 +72,7 @@ def rule_based(audio):
     except:
         return "neutral"
 
+# ─── Analyze audio ────────────────────────────────
 def analyze_voice(audio_data):
     global current_voice_emotion
     try:
@@ -91,6 +95,7 @@ def analyze_voice(audio_data):
     except Exception as e:
         print(f"Voice error: {e}")
 
+# ─── Record loop ──────────────────────────────────
 def record_and_analyze():
     while True:
         try:

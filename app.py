@@ -1,3 +1,5 @@
+
+# ─── Imports ───────────────────────────────────────────────────
 import cv2
 from deepface import DeepFace
 import numpy as np
@@ -8,12 +10,14 @@ import math
 from collections import deque
 from voice_emotion import start_voice_detection, get_voice_emotion
 
+# ─── Config ────────────────────────────────────────────────────
 DETECT_EVERY_N_FRAMES = 5
 SMOOTH_WINDOW = 5
 CSV_FILE = "emotion_log.csv"
 CAM_W, CAM_H = 640, 480
 BOT_W, BOT_H = 400, 480
 
+# ─── State ─────────────────────────────────────────────────────
 emotion_history = deque(maxlen=SMOOTH_WINDOW)
 current_emotion = "neutral"
 current_region  = {}
@@ -24,6 +28,7 @@ fps             = 0
 fps_time        = time.time()
 lock            = threading.Lock()
 
+# ─── Emotion palette ───────────────────────────────────────────
 PALETTE = {
     "happy":    ((0, 220, 100),  "You look happy!",         "Dancing!"),
     "sad":      ((90, 100, 255), "Are you okay?",           "Comforting..."),
@@ -34,6 +39,7 @@ PALETTE = {
     "disgust":  ((0,  165, 255), "Something wrong?",        "Pausing..."),
 }
 
+# ─── CSV ───────────────────────────────────────────────────────
 with open(CSV_FILE, "w", newline="") as f:
     csv.writer(f).writerow(["timestamp","emotion","confidence"])
 
@@ -45,6 +51,7 @@ def smoothed():
     if not emotion_history: return "neutral"
     return max(set(emotion_history), key=list(emotion_history).count)
 
+# ─── Custom model setup ────────────────────────────────────────
 import tensorflow as tf
 
 EMOTION_LABELS = ['angry', 'disgust', 'fear', 'happy', 'neutral', 'sad', 'surprise']
@@ -53,7 +60,7 @@ custom_model = None
 try:
     import tf_keras
     custom_model = tf_keras.models.load_model("emotion_model.h5")
-    print("Custom trained model loaded (tf_keras)!")
+    print("✅ Custom trained model loaded (tf_keras)!")
 except Exception as e1:
     try:
         custom_model = tf.keras.models.load_model(
@@ -61,7 +68,7 @@ except Exception as e1:
             custom_objects=None,
             compile=False
         )
-        print("Custom trained model loaded (tf.keras)!")
+        print("✅ Custom trained model loaded (tf.keras)!")
     except Exception as e2:
         try:
             import h5py
@@ -74,9 +81,9 @@ except Exception as e1:
                     )
                     custom_model = model_from_json(model_config)
                     custom_model.load_weights("emotion_model.h5")
-                    print("Custom trained model loaded (patched)!")
+                    print("✅ Custom trained model loaded (patched)!")
         except Exception as e3:
-            print(f"All load methods failed. Using DeepFace default.")
+            print(f"⚠️  All load methods failed. Using DeepFace default.")
             print(f"   Error: {e3}")
 
 face_cascade = cv2.CascadeClassifier(
@@ -102,6 +109,7 @@ def predict_with_custom_model(frame):
     region = {"x": int(x), "y": int(y), "w": int(w), "h": int(h)}
     return dominant, scores, region
 
+# ─── Detection thread ──────────────────────────────────────────
 def detect_emotion(frame):
     global current_emotion, current_region, emotion_scores
     try:
@@ -127,6 +135,9 @@ def detect_emotion(frame):
     except:
         pass
 
+# ═══════════════════════════════════════════════════════════════
+#  BOT DRAWING  (pure OpenCV / NumPy, no canvas)
+# ═══════════════════════════════════════════════════════════════
 anim_t     = 0.0
 particles  = []
 tears      = []
@@ -157,17 +168,20 @@ def draw_bot(canvas, emotion, t):
     cr, cg, cb = c
     bc  = bgr(cr, cg, cb)
 
+    # Background glow
     cx0, cy0 = BOT_W//2, BOT_H//2 - 20
     overlay = canvas.copy()
     cv2.circle(overlay, (cx0, cy0), 200, bgr(cr//4, cg//4, cb//4), -1)
     cv2.addWeighted(overlay, 0.4, canvas, 0.6, 0, canvas)
 
+    # Shake for angry
     if emotion == "angry":
         shake_tick += 1
         shake_x = int(math.sin(shake_tick * 0.9) * 5)
     else:
         shake_x = 0; shake_tick = 0
 
+    # Bounce
     bounce_amt = 12 if emotion == "happy" else 4
     bounce_spd = 1.8 if emotion == "happy" else 0.7
     bounce_y   = int(math.sin(t * bounce_spd) * bounce_amt)
@@ -175,15 +189,17 @@ def draw_bot(canvas, emotion, t):
     cx = BOT_W // 2 + shake_x
     cy = BOT_H // 2 - 30 + bounce_y
 
+    # ── Legs ──
     leg_swing = int(math.sin(t * 3) * 14) if emotion == "happy" else 0
     cv2.line(canvas, (cx-22, cy+100), (cx-22+leg_swing, cy+155), bc, 10)
     cv2.line(canvas, (cx+22, cy+100), (cx+22-leg_swing, cy+155), bc, 10)
     cv2.ellipse(canvas, (cx-22+leg_swing, cy+162), (14,7), 0, 0, 360, bc, -1)
     cv2.ellipse(canvas, (cx+22-leg_swing, cy+162), (14,7), 0, 0, 360, bc, -1)
 
+    # ── Body ──
     draw_rounded_rect(canvas, cx-55, cy+8, cx+55, cy+103, bgr(18,18,30), 12)
     draw_rounded_rect(canvas, cx-55, cy+8, cx+55, cy+103, bc, 12, 2)
-	
+    # Chest light
     pulse = 0.5 + math.sin(t * 2) * 0.5
     chest_r = int(cr * pulse)
     chest_g = int(cg * pulse)
@@ -191,6 +207,7 @@ def draw_bot(canvas, emotion, t):
     cv2.circle(canvas, (cx, cy+55), 10, bgr(chest_r, chest_g, chest_b), -1)
     cv2.circle(canvas, (cx-3, cy+52), 3, (255,255,255), -1)
 
+    # ── Arms ──
     if emotion == "happy":
         wave = int(math.sin(t * 3) * 15)
         cv2.line(canvas, (cx-55, cy+22), (cx-95, cy-8+wave),  bc, 9)
@@ -220,24 +237,29 @@ def draw_bot(canvas, emotion, t):
         cv2.circle(canvas, (cx-88, cy+48), 8, bc, -1)
         cv2.circle(canvas, (cx+88, cy+48), 8, bc, -1)
 
+    # ── Neck ──
     draw_rounded_rect(canvas, cx-12, cy-10, cx+12, cy+10, bgr(22,22,35), 4)
     draw_rounded_rect(canvas, cx-12, cy-10, cx+12, cy+10, bc, 4, 1)
 
+    # ── Head ──
     draw_rounded_rect(canvas, cx-68, cy-82, cx+68, cy+8, bgr(18,18,30), 16)
     draw_rounded_rect(canvas, cx-68, cy-82, cx+68, cy+8, bc, 16, 3)
 
+    # Scan line
     scan_y = cy - 82 + int((t * 28) % 90)
     scan_overlay = canvas.copy()
     cv2.rectangle(scan_overlay, (cx-68, scan_y), (cx+68, scan_y+5),
                   bgr(cr//6, cg//6, cb//6), -1)
     cv2.addWeighted(scan_overlay, 0.5, canvas, 0.5, 0, canvas)
 
+    # ── Antenna ──
     cv2.line(canvas, (cx, cy-82), (cx, cy-108), bc, 3)
     ant_pulse = 0.5 + math.sin(t * 2.5) * 0.5
     ant_c = bgr(int(cr*ant_pulse), int(cg*ant_pulse), int(cb*ant_pulse))
     cv2.circle(canvas, (cx, cy-112), 8, ant_c, -1)
     cv2.circle(canvas, (cx-2, cy-114), 3, (255,255,255), -1)
 
+    # ── Eyes ──
     ey = cy - 48
     el, er = cx-24, cx+24
 
@@ -247,6 +269,7 @@ def draw_bot(canvas, emotion, t):
     elif emotion == "sad":
         cv2.ellipse(canvas, (el, ey-4), (16,8), 0,   0, 180, bc, 3)
         cv2.ellipse(canvas, (er, ey-4), (16,8), 0,   0, 180, bc, 3)
+        # Sad brows
         cv2.line(canvas, (el-16, ey-22), (el+8, ey-14), bc, 3)
         cv2.line(canvas, (er-8,  ey-14), (er+16, ey-22), bc, 3)
     elif emotion == "angry":
@@ -254,6 +277,7 @@ def draw_bot(canvas, emotion, t):
         cv2.ellipse(canvas, (er, ey), (16,9),-15, 0, 360, bc, -1)
         cv2.circle(canvas, (el, ey), 6, bgr(10,10,20), -1)
         cv2.circle(canvas, (er, ey), 6, bgr(10,10,20), -1)
+        # V brows
         cv2.line(canvas, (el-20, ey-18), (el+10, ey-8), bc, 3)
         cv2.line(canvas, (er+20, ey-18), (er-10, ey-8), bc, 3)
     elif emotion == "surprise":
@@ -282,6 +306,7 @@ def draw_bot(canvas, emotion, t):
         cv2.circle(canvas, (el-3, ey-3), 3, (255,255,255), -1)
         cv2.circle(canvas, (er-3, ey-3), 3, (255,255,255), -1)
 
+    # ── Mouth ──
     my = cy - 20
     if emotion == "happy":
         pts = np.array([[cx-28,my],[cx,my+22],[cx+28,my]], np.int32)
@@ -307,6 +332,7 @@ def draw_bot(canvas, emotion, t):
     else:
         cv2.line(canvas,(cx-20,my+10),(cx+20,my+10),bc,3)
 
+    # ── Tears (sad) ──
     if emotion == "sad":
         if np.random.rand() < 0.06:
             tears.append({"x":float(el),"y":float(ey+10),"vy":1.5,"life":1.0})
@@ -326,6 +352,7 @@ def draw_bot(canvas, emotion, t):
             alive.append(tr2)
     tears[:] = alive
 
+    # ── Particles (happy) ──
     if emotion == "happy" and np.random.rand() < 0.18:
         for _ in range(6):
             particles.append({
@@ -352,17 +379,20 @@ def draw_bot(canvas, emotion, t):
             alive_p.append(p)
     particles[:] = alive_p
 
+    # ── Sweat (fear) ──
     if emotion == "fear":
         sw = int(math.sin(t*2)*3)
         cv2.circle(canvas,(cx+72,cy-60+sw),4,bgr(100,40,200),-1)
         cv2.circle(canvas,(cx+78,cy-44+sw),3,bgr(100,40,200),-1)
 
+    # ── Anger marks ──
     if emotion == "angry":
         ak = bgr(180,30,50)
         cv2.line(canvas,(cx-90+shake_x,cy-55),(cx-80+shake_x,cy-68),ak,2)
         cv2.line(canvas,(cx-84+shake_x,cy-55),(cx-74+shake_x,cy-68),ak,2)
         cv2.line(canvas,(cx+80+shake_x,cy-55),(cx+90+shake_x,cy-68),ak,2)
         cv2.line(canvas,(cx+74+shake_x,cy-55),(cx+84+shake_x,cy-68),ak,2)
+
 
 def draw_bot_panel(emotion, t):
     canvas = np.full((BOT_H, BOT_W, 3), (12, 10, 18), dtype=np.uint8)
@@ -371,7 +401,8 @@ def draw_bot_panel(emotion, t):
     c  = col(emotion)
     bc = bgr(*c)
     info = PALETTE.get(emotion, PALETTE["neutral"])
-	
+
+    # Emotion label top
     cv2.rectangle(canvas, (0,0),(BOT_W,44), bgr(10,8,16),-1)
     label = emotion.upper()
     lsz   = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)[0]
@@ -379,6 +410,7 @@ def draw_bot_panel(emotion, t):
                 (BOT_W//2 - lsz[0]//2, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.9, bc, 2)
 
+    # Response text bottom
     cv2.rectangle(canvas,(0,BOT_H-70),(BOT_W,BOT_H),bgr(10,8,16),-1)
     cv2.line(canvas,(0,BOT_H-70),(BOT_W,BOT_H-70),bc,1)
     resp = info[1]
@@ -392,9 +424,15 @@ def draw_bot_panel(emotion, t):
                 (BOT_W//2 - asz[0]//2, BOT_H-18),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0,200,200), 1)
 
+    # Divider line left
     cv2.line(canvas,(0,0),(0,BOT_H),bc,2)
+
     return canvas
 
+
+# ═══════════════════════════════════════════════════════════════
+#  MAIN LOOP
+# ═══════════════════════════════════════════════════════════════
 def run_app():
 	start_voice_detection()
 	cap = cv2.VideoCapture(0)
@@ -414,6 +452,7 @@ def run_app():
 	    fps_time = now
 	    anim_t  += 0.045
 
+	    # Detection every N frames
 	    if frame_count % DETECT_EVERY_N_FRAMES == 0:
 	        t2 = threading.Thread(target=detect_emotion, args=(frame.copy(),))
 	        t2.daemon = True
@@ -428,14 +467,17 @@ def run_app():
 	    color  = c_info[0]
 	    bc     = bgr(*color)
 
+	    # ── Resize camera feed ──
 	    cam_display = cv2.resize(frame, (CAM_W, CAM_H))
 
+	    # ── Face box ──
 	    if region and region.get("w",0)>0:
 	        x,y,w,h = region["x"],region["y"],region["w"],region["h"]
 	        cv2.rectangle(cam_display,(x,y),(x+w,y+h),bc,2)
 	        cv2.putText(cam_display, emotion.upper(),(x,y-10),
 	                    cv2.FONT_HERSHEY_SIMPLEX,0.7,bc,2)
 
+	    # ── Top bar on camera ──
 	    cv2.rectangle(cam_display,(0,0),(CAM_W,100),(15,12,22),-1)
 	    cv2.putText(cam_display, f"Emotion: {emotion.upper()}",(12,36),
 	                cv2.FONT_HERSHEY_SIMPLEX,0.9,bc,2)
@@ -444,6 +486,7 @@ def run_app():
 	    cv2.putText(cam_display, f"FPS: {fps:.1f}",(CAM_W-110,30),
 	                cv2.FONT_HERSHEY_SIMPLEX,0.55,(80,220,80),1)
 
+	    # ── Confidence mini bars ──
 	    if scores:
 	        yp = 115
 	        for emo,sc in sorted(scores.items(),key=lambda x:-x[1])[:5]:
@@ -454,6 +497,7 @@ def run_app():
 	                        cv2.FONT_HERSHEY_SIMPLEX,0.32,(200,200,200),1)
 	            yp += 18
 
+	    # ── Bottom bar ──
 	    voice_emo = get_voice_emotion()
 	    cv2.rectangle(cam_display,(0,CAM_H-36),(CAM_W,CAM_H),(15,12,22),-1)
 	    cv2.line(cam_display,(0,CAM_H-36),(CAM_W,CAM_H-36),bc,1)
@@ -462,9 +506,12 @@ def run_app():
 	                f"Face:{emotion}  Voice:{voice_emo}  Time:{elapsed}s",
 	                (10,CAM_H-12),cv2.FONT_HERSHEY_SIMPLEX,0.42,(0,220,220),1)
 
+	    # ── Bot panel ──
 	    bot_panel = draw_bot_panel(emotion, anim_t)
+	    # Resize bot to match camera height
 	    bot_panel = cv2.resize(bot_panel,(BOT_W, CAM_H))
 
+	    # ── Combine side by side ──
 	    combined = np.hstack([cam_display, bot_panel])
 
 	    cv2.imshow("Emotion-Aware Bot", combined)
@@ -476,6 +523,7 @@ def run_app():
 	cv2.destroyAllWindows()
 	print(f"Done! Log: {CSV_FILE}")
 
+	# ── Timeline ──
 	try:
 	    import matplotlib.pyplot as plt
 	    times,emotions_log=[],[]

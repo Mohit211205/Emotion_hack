@@ -5,6 +5,7 @@ import csv
 import time
 import os
 
+# ─── Config ───────────────────────────────────────
 CSV_FILE = "emotion_log.csv"
 MAX_POINTS = 50
 
@@ -19,17 +20,19 @@ colors_map = {
     "disgust":  "#FF8800",
 }
 
+# ─── Data buffers ─────────────────────────────────
 time_buf = deque(maxlen=MAX_POINTS)
 emotion_buf = deque(maxlen=MAX_POINTS)
 last_line_count = 0
 
+# ─── Setup figure ─────────────────────────────────
 fig = plt.figure(figsize=(14, 7), facecolor='#111111')
 fig.suptitle("🧠 Emotion-Aware Bot — Live Dashboard", 
              color='white', fontsize=14, fontweight='bold')
 
-ax1 = fig.add_subplot(2, 2, (1, 2))  
-ax2 = fig.add_subplot(2, 2, 3)     
-ax3 = fig.add_subplot(2, 2, 4)      
+ax1 = fig.add_subplot(2, 2, (1, 2))  # timeline top
+ax2 = fig.add_subplot(2, 2, 3)       # pie chart
+ax3 = fig.add_subplot(2, 2, 4)       # bar chart
 
 for ax in [ax1, ax2, ax3]:
     ax.set_facecolor('#1a1a1a')
@@ -60,6 +63,7 @@ def animate(i):
     if not emotion_buf:
         return
 
+    # ── Timeline chart ──
     ax1.clear()
     ax1.set_facecolor('#1a1a1a')
     y_vals = [emotion_list.index(e) if e in emotion_list else 0 for e in emotion_buf]
@@ -74,12 +78,14 @@ def animate(i):
     ax1.tick_params(colors='white')
     ax1.grid(True, alpha=0.15)
 
+    # Highlight current emotion
     if emotion_buf:
         current = emotion_buf[-1]
         ax1.axhline(y=emotion_list.index(current),
                    color=colors_map.get(current, 'white'),
                    alpha=0.3, linestyle='--')
 
+    # ── Pie chart ──
     ax2.clear()
     ax2.set_facecolor('#1a1a1a')
     counts = Counter(emotion_buf)
@@ -97,6 +103,7 @@ def animate(i):
         at.set_fontweight('bold')
     ax2.set_title("🥧 Emotion Distribution", color='white', fontsize=11)
 
+    # ── Bar chart ──
     ax3.clear()
     ax3.set_facecolor('#1a1a1a')
     all_counts = {e: 0 for e in emotion_list}
@@ -112,6 +119,7 @@ def animate(i):
     ax3.set_xticklabels(list(all_counts.keys()), rotation=30,
                         ha='right', color='white', fontsize=8)
 
+    # Highlight current emotion bar
     if emotion_buf:
         current = emotion_buf[-1]
         for bar, emo in zip(bars, all_counts.keys()):
@@ -119,6 +127,7 @@ def animate(i):
                 bar.set_edgecolor('white')
                 bar.set_linewidth(2)
 
+    # ── Stats text ──
     if emotion_buf:
         most_common = Counter(emotion_buf).most_common(1)[0][0]
         fig.suptitle(

@@ -9,6 +9,7 @@ app = Flask(__name__)
 CORS(app)
 CSV_FILE = "emotion_log.csv"
 
+# ─── State ────────────────────────────────────────────────────
 current_emotion   = "neutral"
 current_confidence = 0.0
 current_scores    = {}
@@ -22,6 +23,7 @@ def log_csv(emotion, conf):
     with open(CSV_FILE, "a", newline="") as f:
         csv.writer(f).writerow([round(time.time() - start_time, 2), emotion, round(conf, 2)])
 
+# ─── Emotion detection from base64 frame ──────────────────────
 def analyze_frame(b64_data):
     global current_emotion, current_confidence, current_scores
     try:
@@ -43,6 +45,7 @@ def analyze_frame(b64_data):
     except Exception as e:
         pass
 
+# ─── Routes ───────────────────────────────────────────────────
 @app.route("/")
 def index():
     return render_template_string(HTML)
@@ -72,6 +75,7 @@ def history():
     except:
         return jsonify([])
 
+# ─── HTML ─────────────────────────────────────────────────────
 HTML = '''<!DOCTYPE html>
 <html>
 <head>
@@ -103,6 +107,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
 .bl{bottom:4px;left:4px;border-width:0 0 1px 1px}
 .br{bottom:4px;right:4px;border-width:0 1px 1px 0}
 
+/* Camera panel */
 .cam-wrap{position:relative;width:100%;aspect-ratio:4/3;background:#02020a;border:1px solid rgba(0,255,204,0.06);border-radius:2px;overflow:hidden}
 #video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
 #faceOverlay{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
@@ -111,6 +116,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
 .cam-dot.active{background:#00ff88;animation:pulse 0.8s infinite}
 .fps-badge{margin-left:auto;font-size:9px;color:rgba(0,255,204,0.2);letter-spacing:2px}
 
+/* Bot panel */
 .bot-canvas-wrap{display:flex;justify-content:center;margin-bottom:10px}
 #botC{background:#06060f;border:1px solid rgba(0,255,204,0.06);border-radius:3px}
 .emo-name{font-family:'Orbitron',monospace;font-size:26px;font-weight:900;letter-spacing:5px;text-align:center;transition:color 0.5s,text-shadow 0.5s;margin-bottom:6px}
@@ -121,6 +127,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
 .tl-wrap{display:flex;align-items:flex-end;gap:2px;height:40px;margin-top:10px;overflow:hidden;border-top:1px solid rgba(0,255,204,0.05);padding-top:8px}
 .tlbar{min-width:8px;border-radius:1px 1px 0 0;transition:height 0.4s,background 0.4s}
 
+/* Right panel */
 .bar-row{display:flex;align-items:center;gap:7px;margin-bottom:8px}
 .blbl{font-size:9px;letter-spacing:1px;width:54px;text-transform:capitalize;transition:color 0.4s}
 .btrack{flex:1;height:6px;background:#0a0a1a;border:1px solid rgba(255,255,255,0.03);border-radius:1px;overflow:hidden}
@@ -158,6 +165,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
 
 <div class="main">
 
+  <!-- CAMERA -->
   <div class="panel">
     <div class="cn tl"></div><div class="cn tr"></div><div class="cn bl"></div><div class="cn br"></div>
     <div class="ptitle">camera.feed / face.detect</div>
@@ -172,6 +180,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
     </div>
   </div>
 
+  <!-- BOT -->
   <div class="panel">
     <div class="cn tl"></div><div class="cn tr"></div><div class="cn bl"></div><div class="cn br"></div>
     <div class="ptitle">bot.render / emotion.state</div>
@@ -185,6 +194,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;width:100%;height:1px
     <div class="tl-wrap" id="tlWrap"></div>
   </div>
 
+  <!-- RIGHT PANEL -->
   <div class="panel" style="grid-row:1/3">
     <div class="cn tl"></div><div class="cn tr"></div><div class="cn bl"></div><div class="cn br"></div>
     <div class="ptitle">confidence.matrix</div>
