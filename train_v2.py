@@ -8,13 +8,11 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 import matplotlib.pyplot as plt
 
-# ─── Config ───────────────────────────────────────
 IMG_SIZE = 48
 BATCH_SIZE = 64
 EPOCHS = 50
 DATASET_PATH = "dataset"
 
-# ─── Data ─────────────────────────────────────────
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     rotation_range=15,
@@ -45,18 +43,15 @@ test_gen = test_datagen.flow_from_directory(
     shuffle=False
 )
 
-# ─── VGG16 Transfer Learning ──────────────────────
 base_model = VGG16(
     weights='imagenet',
     include_top=False,
     input_shape=(IMG_SIZE, IMG_SIZE, 3)
 )
 
-# Freeze base layers
 for layer in base_model.layers[:-4]:
     layer.trainable = False
 
-# Build model
 inputs = Input(shape=(IMG_SIZE, IMG_SIZE, 3))
 x = base_model(inputs, training=False)
 x = GlobalAveragePooling2D()(x)
@@ -77,7 +72,6 @@ model.compile(
 
 model.summary()
 
-# ─── Callbacks ────────────────────────────────────
 callbacks = [
     ModelCheckpoint(
         "emotion_model_v2.h5",
@@ -100,8 +94,7 @@ callbacks = [
     )
 ]
 
-# ─── Train ────────────────────────────────────────
-print("\n🚀 Training VGG16 model...")
+print("\n Training VGG16 model...")
 history = model.fit(
     train_gen,
     epochs=EPOCHS,
@@ -110,7 +103,6 @@ history = model.fit(
     verbose=1
 )
 
-# ─── Plot ─────────────────────────────────────────
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 4))
 ax1.plot(history.history['accuracy'], color='cyan', label='Train')
 ax1.plot(history.history['val_accuracy'], color='orange', label='Val')
