@@ -1,16 +1,12 @@
-# Python
 __pycache__/
 *.pyc
 
-# Datasets
 dataset/
 voice_dataset/
 datasets.zip
 
-# Models
 *.pkl
 *.h5
 
-# Optional
 *.log
 *.csv
