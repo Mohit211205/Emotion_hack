@@ -433,111 +433,115 @@ def draw_bot_panel(emotion, t):
 # ═══════════════════════════════════════════════════════════════
 #  MAIN LOOP
 # ═══════════════════════════════════════════════════════════════
-start_voice_detection()
-cap = cv2.VideoCapture(0)
-cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
+def run_app():
+	start_voice_detection()
+	cap = cv2.VideoCapture(0)
+	cap.set(cv2.CAP_PROP_FRAME_WIDTH,  CAM_W)
+	cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_H)
 
-print("Starting... Press Q to quit")
+	print("Starting... Press Q to quit")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
+	while True:
+	    ret, frame = cap.read()
+	    if not ret:
+	        break
 
-    frame_count += 1
-    now   = time.time()
-    fps   = 1.0 / (now - fps_time + 1e-6)
-    fps_time = now
-    anim_t  += 0.045
+	    frame_count += 1
+	    now   = time.time()
+	    fps   = 1.0 / (now - fps_time + 1e-6)
+	    fps_time = now
+	    anim_t  += 0.045
 
-    # Detection every N frames
-    if frame_count % DETECT_EVERY_N_FRAMES == 0:
-        t2 = threading.Thread(target=detect_emotion, args=(frame.copy(),))
-        t2.daemon = True
-        t2.start()
+	    # Detection every N frames
+	    if frame_count % DETECT_EVERY_N_FRAMES == 0:
+	        t2 = threading.Thread(target=detect_emotion, args=(frame.copy(),))
+	        t2.daemon = True
+	        t2.start()
 
-    with lock:
-        emotion = current_emotion
-        region  = current_region.copy()
-        scores  = emotion_scores.copy()
+	    with lock:
+	        emotion = current_emotion
+	        region  = current_region.copy()
+	        scores  = emotion_scores.copy()
 
-    c_info = PALETTE.get(emotion, PALETTE["neutral"])
-    color  = c_info[0]
-    bc     = bgr(*color)
+	    c_info = PALETTE.get(emotion, PALETTE["neutral"])
+	    color  = c_info[0]
+	    bc     = bgr(*color)
 
-    # ── Resize camera feed ──
-    cam_display = cv2.resize(frame, (CAM_W, CAM_H))
+	    # ── Resize camera feed ──
+	    cam_display = cv2.resize(frame, (CAM_W, CAM_H))
 
-    # ── Face box ──
-    if region and region.get("w",0)>0:
-        x,y,w,h = region["x"],region["y"],region["w"],region["h"]
-        cv2.rectangle(cam_display,(x,y),(x+w,y+h),bc,2)
-        cv2.putText(cam_display, emotion.upper(),(x,y-10),
-                    cv2.FONT_HERSHEY_SIMPLEX,0.7,bc,2)
+	    # ── Face box ──
+	    if region and region.get("w",0)>0:
+	        x,y,w,h = region["x"],region["y"],region["w"],region["h"]
+	        cv2.rectangle(cam_display,(x,y),(x+w,y+h),bc,2)
+	        cv2.putText(cam_display, emotion.upper(),(x,y-10),
+	                    cv2.FONT_HERSHEY_SIMPLEX,0.7,bc,2)
 
-    # ── Top bar on camera ──
-    cv2.rectangle(cam_display,(0,0),(CAM_W,100),(15,12,22),-1)
-    cv2.putText(cam_display, f"Emotion: {emotion.upper()}",(12,36),
-                cv2.FONT_HERSHEY_SIMPLEX,0.9,bc,2)
-    cv2.putText(cam_display, c_info[1],(12,68),
-                cv2.FONT_HERSHEY_SIMPLEX,0.55,bc,1)
-    cv2.putText(cam_display, f"FPS: {fps:.1f}",(CAM_W-110,30),
-                cv2.FONT_HERSHEY_SIMPLEX,0.55,(80,220,80),1)
+	    # ── Top bar on camera ──
+	    cv2.rectangle(cam_display,(0,0),(CAM_W,100),(15,12,22),-1)
+	    cv2.putText(cam_display, f"Emotion: {emotion.upper()}",(12,36),
+	                cv2.FONT_HERSHEY_SIMPLEX,0.9,bc,2)
+	    cv2.putText(cam_display, c_info[1],(12,68),
+	                cv2.FONT_HERSHEY_SIMPLEX,0.55,bc,1)
+	    cv2.putText(cam_display, f"FPS: {fps:.1f}",(CAM_W-110,30),
+	                cv2.FONT_HERSHEY_SIMPLEX,0.55,(80,220,80),1)
 
-    # ── Confidence mini bars ──
-    if scores:
-        yp = 115
-        for emo,sc in sorted(scores.items(),key=lambda x:-x[1])[:5]:
-            blen = int(sc*1.5)
-            bc2  = bgr(*col(emo)) if emo==emotion else (60,60,60)
-            cv2.rectangle(cam_display,(12,yp),(12+blen,yp+12),bc2,-1)
-            cv2.putText(cam_display,f"{emo[:5]}",(12,yp+10),
-                        cv2.FONT_HERSHEY_SIMPLEX,0.32,(200,200,200),1)
-            yp += 18
+	    # ── Confidence mini bars ──
+	    if scores:
+	        yp = 115
+	        for emo,sc in sorted(scores.items(),key=lambda x:-x[1])[:5]:
+	            blen = int(sc*1.5)
+	            bc2  = bgr(*col(emo)) if emo==emotion else (60,60,60)
+	            cv2.rectangle(cam_display,(12,yp),(12+blen,yp+12),bc2,-1)
+	            cv2.putText(cam_display,f"{emo[:5]}",(12,yp+10),
+	                        cv2.FONT_HERSHEY_SIMPLEX,0.32,(200,200,200),1)
+	            yp += 18
 
-    # ── Bottom bar ──
-    voice_emo = get_voice_emotion()
-    cv2.rectangle(cam_display,(0,CAM_H-36),(CAM_W,CAM_H),(15,12,22),-1)
-    cv2.line(cam_display,(0,CAM_H-36),(CAM_W,CAM_H-36),bc,1)
-    elapsed = int(time.time()-start_time)
-    cv2.putText(cam_display,
-                f"Face:{emotion}  Voice:{voice_emo}  Time:{elapsed}s",
-                (10,CAM_H-12),cv2.FONT_HERSHEY_SIMPLEX,0.42,(0,220,220),1)
+	    # ── Bottom bar ──
+	    voice_emo = get_voice_emotion()
+	    cv2.rectangle(cam_display,(0,CAM_H-36),(CAM_W,CAM_H),(15,12,22),-1)
+	    cv2.line(cam_display,(0,CAM_H-36),(CAM_W,CAM_H-36),bc,1)
+	    elapsed = int(time.time()-start_time)
+	    cv2.putText(cam_display,
+	                f"Face:{emotion}  Voice:{voice_emo}  Time:{elapsed}s",
+	                (10,CAM_H-12),cv2.FONT_HERSHEY_SIMPLEX,0.42,(0,220,220),1)
 
-    # ── Bot panel ──
-    bot_panel = draw_bot_panel(emotion, anim_t)
-    # Resize bot to match camera height
-    bot_panel = cv2.resize(bot_panel,(BOT_W, CAM_H))
+	    # ── Bot panel ──
+	    bot_panel = draw_bot_panel(emotion, anim_t)
+	    # Resize bot to match camera height
+	    bot_panel = cv2.resize(bot_panel,(BOT_W, CAM_H))
 
-    # ── Combine side by side ──
-    combined = np.hstack([cam_display, bot_panel])
+	    # ── Combine side by side ──
+	    combined = np.hstack([cam_display, bot_panel])
 
-    cv2.imshow("Emotion-Aware Bot", combined)
+	    cv2.imshow("Emotion-Aware Bot", combined)
 
-    if cv2.waitKey(1) & 0xFF == ord("q"):
-        break
+	    if cv2.waitKey(1) & 0xFF == ord("q"):
+	        break
 
-cap.release()
-cv2.destroyAllWindows()
-print(f"Done! Log: {CSV_FILE}")
+	cap.release()
+	cv2.destroyAllWindows()
+	print(f"Done! Log: {CSV_FILE}")
 
-# ── Timeline ──
-try:
-    import matplotlib.pyplot as plt
-    times,emotions_log=[],[]
-    with open(CSV_FILE) as f:
-        for row in csv.DictReader(f):
-            times.append(float(row["timestamp"]))
-            emotions_log.append(row["emotion"])
-    elist = list(PALETTE.keys())
-    yv = [elist.index(e) if e in elist else 0 for e in emotions_log]
-    plt.figure(figsize=(14,4))
-    plt.plot(times,yv,marker='o',color='cyan',linewidth=1.5,markersize=4)
-    plt.yticks(range(len(elist)),elist)
-    plt.xlabel("Time (s)"); plt.title("Emotion Timeline")
-    plt.grid(True,alpha=0.3); plt.tight_layout()
-    plt.savefig("emotion_timeline.png"); plt.show()
-    print("Timeline saved!")
-except Exception as e:
-    print(f"Timeline error: {e}")
+	# ── Timeline ──
+	try:
+	    import matplotlib.pyplot as plt
+	    times,emotions_log=[],[]
+	    with open(CSV_FILE) as f:
+	        for row in csv.DictReader(f):
+	            times.append(float(row["timestamp"]))
+	            emotions_log.append(row["emotion"])
+	    elist = list(PALETTE.keys())
+	    yv = [elist.index(e) if e in elist else 0 for e in emotions_log]
+	    plt.figure(figsize=(14,4))
+	    plt.plot(times,yv,marker='o',color='cyan',linewidth=1.5,markersize=4)
+	    plt.yticks(range(len(elist)),elist)
+	    plt.xlabel("Time (s)"); plt.title("Emotion Timeline")
+	    plt.grid(True,alpha=0.3); plt.tight_layout()
+	    plt.savefig("emotion_timeline.png"); plt.savefig("emotion_timeline.png")
+	    print("Timeline saved!")
+	except Exception as e:
+	    print(f"Timeline error: {e}")
+
+if __name__ == "__main__":
+	run_app()
