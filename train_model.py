@@ -8,13 +8,11 @@ from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLRO
 from tensorflow.keras.optimizers import Adam
 import matplotlib.pyplot as plt
 
-# ─── Config ───────────────────────────────────────
 IMG_SIZE    = 48
-BATCH_SIZE  = 64   # smaller = more gradient updates = better learning
-EPOCHS      = 50   # increased from 20
+BATCH_SIZE  = 64 
+EPOCHS      = 50
 DATASET_PATH = "dataset"
 
-# ─── Data Augmentation (improved) ────────────────
 train_datagen = ImageDataGenerator(
     rescale=1./255,
     rotation_range=15,
@@ -49,9 +47,8 @@ test_gen = test_datagen.flow_from_directory(
 
 print(f"Classes: {train_gen.class_indices}")
 
-# ─── Deeper Model ────────────────────────────────
 model = Sequential([
-    # Block 1
+  
     Conv2D(64, (3,3), padding='same', activation='relu', input_shape=(48,48,1)),
     BatchNormalization(),
     Conv2D(64, (3,3), padding='same', activation='relu'),
@@ -59,7 +56,6 @@ model = Sequential([
     MaxPooling2D(2,2),
     Dropout(0.25),
 
-    # Block 2
     Conv2D(128, (3,3), padding='same', activation='relu'),
     BatchNormalization(),
     Conv2D(128, (3,3), padding='same', activation='relu'),
@@ -67,7 +63,6 @@ model = Sequential([
     MaxPooling2D(2,2),
     Dropout(0.25),
 
-    # Block 3
     Conv2D(256, (3,3), padding='same', activation='relu'),
     BatchNormalization(),
     Conv2D(256, (3,3), padding='same', activation='relu'),
@@ -75,13 +70,11 @@ model = Sequential([
     MaxPooling2D(2,2),
     Dropout(0.25),
 
-    # Block 4
     Conv2D(512, (3,3), padding='same', activation='relu'),
     BatchNormalization(),
     MaxPooling2D(2,2),
     Dropout(0.25),
 
-    # Classifier
     Flatten(),
     Dense(512, activation='relu'),
     BatchNormalization(),
@@ -100,7 +93,6 @@ model.compile(
 model.summary()
 print(f"\nTotal params: {model.count_params():,}")
 
-# ─── Callbacks ────────────────────────────────────
 callbacks = [
     ModelCheckpoint(
         "emotion_model.h5",
@@ -123,7 +115,6 @@ callbacks = [
     )
 ]
 
-# ─── Train ────────────────────────────────────────
 print("\nTraining started... (50 epochs, ~1-2 hrs on CPU)")
 history = model.fit(
     train_gen,
@@ -133,7 +124,6 @@ history = model.fit(
     verbose=1
 )
 
-# ─── Plot ─────────────────────────────────────────
 fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
 ax1.plot(history.history['accuracy'],     color='cyan',   label='Train', linewidth=2)
 ax1.plot(history.history['val_accuracy'], color='orange', label='Val',   linewidth=2)
@@ -150,7 +140,6 @@ plt.tight_layout()
 plt.savefig("training_results.png", dpi=150)
 plt.show()
 
-# ─── Evaluate ─────────────────────────────────────
 loss, acc = model.evaluate(test_gen, verbose=0)
 print(f"\nTraining Complete!")
 print(f"Test Accuracy: {acc*100:.2f}%")
